@@ -1,5 +1,5 @@
 /* Service Worker · Cache-First. La versión cambia sola con cada build (hash del index.html cifrado). */
-const C = 'p3h-15b128973972';
+const C = 'p3h-84c8a304fb0f';
 const F = ['./index.html', './manifest.json'];
 /* Copia limpia: algunos hostings redirigen /index.html a / y una respuesta «redirected» no vale para navegar */
 const clean = async r => r.redirected ? new Response(await r.blob(), { status: r.status, statusText: r.statusText, headers: r.headers }) : r;
@@ -9,12 +9,14 @@ self.addEventListener('install', e => e.waitUntil((async () => {
   await self.skipWaiting();
 })()));
 self.addEventListener('activate', e => e.waitUntil((async () => {
-  for (const k of await caches.keys()) if (k !== C) await caches.delete(k);
+  for (const k of await caches.keys()) if (k !== C && k !== 'p3h-packs') await caches.delete(k);
   await self.clients.claim();
 })()));
 self.addEventListener('fetch', e => {
   const q = e.request; if (q.method !== 'GET' || new URL(q.url).origin !== location.origin) return;
   e.respondWith((async () => {
+    // paquetes de imágenes: su nombre lleva un hash, así que se guardan aparte y no se vuelven a bajar en cada actualización
+    if (/\/packs\//.test(q.url)) { const pc = await caches.open('p3h-packs'); const h = await pc.match(q); if (h) return h; const r = await fetch(q); if (r.ok) pc.put(q, r.clone()); return r; }
     const c = await caches.open(C);
     const hit = q.mode === 'navigate' ? await c.match('./index.html') : await c.match(q, { ignoreSearch: true });
     if (hit) return hit;
